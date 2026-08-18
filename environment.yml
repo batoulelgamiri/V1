@@ -1,0 +1,11 @@
+name: aegis-pe
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - anaconda::py-lief=0.10.1
+  - pip
+  - pip:
+      - -r backend/requirements.txt
+      - -r backend/requirements-model-exact.txt
+
