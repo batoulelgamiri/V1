@@ -53,6 +53,21 @@ Threshold interpretation is explicit:
 - `SUSPICIOUS_THRESHOLD <= score < MALICIOUS_THRESHOLD`: suspicious
 - `score >= MALICIOUS_THRESHOLD`: malicious
 
+## Automated Windows setup
+
+After copying the repository to any Windows folder, install Git, Miniconda/Anaconda,
+and Node.js 20 or newer, then double-click `setup-aegis.cmd`. The setup resolves all
+paths relative to its own location, so the repository folder does not need to be
+named `Aegis`. It creates or updates the exact `aegis-pe` Conda environment,
+creates `.env` without overwriting an existing configuration, generates a random
+Wazuh intake key when the default is present, verifies the model, installs the
+frontend, builds it, and checks that the application and model load successfully.
+
+After setup, double-click `start-aegis.cmd` to start both servers and open the
+dashboard. PowerShell users can run `setup-aegis.ps1` and `start-aegis.ps1`
+directly. Ollama remains optional and must be installed separately for AI/PDF
+reports.
+
 YARA is enabled by default with reviewed rules in `backend/rules/`. Rules are compiled once at startup, scanned with a timeout, and fingerprinted into the analysis cache version. Only rules that explicitly set `aegis_verdict = "suspicious"` or `aegis_verdict = "malicious"` may override the model-only classification; all other matches remain informational evidence. Restart the backend after changing rules.
 
 ## 2. Install the backend and exact model pipeline
