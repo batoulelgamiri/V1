@@ -73,8 +73,9 @@ $EnvExample = Join-Path $ProjectRoot ".env.example"
 $EnvFile = Join-Path $ProjectRoot ".env"
 $ModelSetup = Join-Path $BackendDirectory "scripts\setup_model.py"
 $EnvironmentVerifier = Join-Path $BackendDirectory "scripts\verify_model_environment.py"
+$ApplicationVerifier = Join-Path $BackendDirectory "scripts\verify_application.py"
 
-foreach ($requiredPath in @($EnvironmentFile, $BackendDirectory, $FrontendDirectory, $EnvExample, $ModelSetup, $EnvironmentVerifier)) {
+foreach ($requiredPath in @($EnvironmentFile, $BackendDirectory, $FrontendDirectory, $EnvExample, $ModelSetup, $EnvironmentVerifier, $ApplicationVerifier)) {
     if (-not (Test-Path -LiteralPath $requiredPath)) {
         throw "The repository is incomplete. Missing: $requiredPath"
     }
@@ -202,19 +203,10 @@ try {
 
     if (-not $SkipModel) {
         Write-Step "Loading the application and model"
-        $applicationCheck = @'
-from app.api.dependencies import get_detection_engine
-from app.main import app
-
-engine = get_detection_engine()
-if not engine.available:
-    raise SystemExit("The model engine is unavailable")
-print(f"Application verified: {app.title}; model={engine.model_version}")
-'@
         Push-Location $BackendDirectory
         try {
             Invoke-Checked -Executable $Conda `
-                -Arguments @("run", "--no-capture-output", "--name", $EnvironmentName, "python", "-c", $applicationCheck) `
+                -Arguments @("run", "--no-capture-output", "--name", $EnvironmentName, "python", $ApplicationVerifier) `
                 -FailureMessage "Application verification failed"
         }
         finally {
