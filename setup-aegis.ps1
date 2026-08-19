@@ -72,8 +72,9 @@ $FrontendDirectory = Join-Path $ProjectRoot "frontend"
 $EnvExample = Join-Path $ProjectRoot ".env.example"
 $EnvFile = Join-Path $ProjectRoot ".env"
 $ModelSetup = Join-Path $BackendDirectory "scripts\setup_model.py"
+$EnvironmentVerifier = Join-Path $BackendDirectory "scripts\verify_model_environment.py"
 
-foreach ($requiredPath in @($EnvironmentFile, $BackendDirectory, $FrontendDirectory, $EnvExample, $ModelSetup)) {
+foreach ($requiredPath in @($EnvironmentFile, $BackendDirectory, $FrontendDirectory, $EnvExample, $ModelSetup, $EnvironmentVerifier)) {
     if (-not (Test-Path -LiteralPath $requiredPath)) {
         throw "The repository is incomplete. Missing: $requiredPath"
     }
@@ -148,34 +149,8 @@ try {
     }
 
     Write-Step "Verifying the exact EMBER/XGBoost environment"
-    $verificationCode = @'
-import sys
-import numpy
-import sklearn
-import lief
-import xgboost
-
-expected = {
-    "python": "3.10",
-    "numpy": "1.23.5",
-    "sklearn": "1.1.3",
-    "lief": "0.10.1",
-    "xgboost": "1.7.6",
-}
-actual = {
-    "python": f"{sys.version_info.major}.{sys.version_info.minor}",
-    "numpy": numpy.__version__,
-    "sklearn": sklearn.__version__,
-    "lief": str(lief.__version__).rstrip("-"),
-    "xgboost": xgboost.__version__,
-}
-for name, required in expected.items():
-    if actual[name] != required:
-        raise SystemExit(f"{name}: expected {required}, found {actual[name]}")
-print("Exact model environment verified:", actual)
-'@
     Invoke-Checked -Executable $Conda `
-        -Arguments @("run", "--no-capture-output", "--name", $EnvironmentName, "python", "-c", $verificationCode) `
+        -Arguments @("run", "--no-capture-output", "--name", $EnvironmentName, "python", $EnvironmentVerifier) `
         -FailureMessage "Exact dependency verification failed"
 
     Write-Step "Creating application configuration"
@@ -254,4 +229,3 @@ finally {
 Write-Host "`nAegis setup completed successfully." -ForegroundColor Green
 Write-Host "Start it by double-clicking start-aegis.cmd, or run .\start-aegis.ps1"
 Write-Host "Ollama is optional; install it and run 'ollama pull llama3' for AI/PDF reports."
-
