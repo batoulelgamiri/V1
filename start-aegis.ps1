@@ -53,31 +53,47 @@ Set-Location -LiteralPath '$($FrontendDirectory.Replace("'", "''"))'
 "@
 
 Write-Host "Starting Aegis backend and dashboard..." -ForegroundColor Cyan
-Start-Process powershell.exe -ArgumentList @(
+$backendProcess = Start-Process powershell.exe -PassThru -ArgumentList @(
     "-NoLogo", "-NoExit", "-EncodedCommand", (ConvertTo-EncodedCommand $backendCommand)
 )
-Start-Process powershell.exe -ArgumentList @(
+$frontendProcess = Start-Process powershell.exe -PassThru -ArgumentList @(
     "-NoLogo", "-NoExit", "-EncodedCommand", (ConvertTo-EncodedCommand $frontendCommand)
 )
 
-$ready = $false
-for ($attempt = 0; $attempt -lt 45; $attempt++) {
+$backendReady = $false
+$frontendReady = $false
+for ($attempt = 0; $attempt -lt 60; $attempt++) {
     try {
         $health = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/health" -TimeoutSec 2
         if ($health.status -eq "ok" -and $health.model_available) {
-            $ready = $true
-            break
+            $backendReady = $true
         }
     }
-    catch {
-        Start-Sleep -Seconds 1
+    catch { }
+
+    try {
+        $frontendResponse = Invoke-WebRequest `
+            -Uri "http://127.0.0.1:5173" `
+            -UseBasicParsing `
+            -TimeoutSec 2
+        if ($frontendResponse.StatusCode -eq 200) {
+            $frontendReady = $true
+        }
     }
+    catch { }
+
+    if ($backendReady -and $frontendReady) {
+        break
+    }
+    Start-Sleep -Seconds 1
 }
 
-if (-not $ready) {
-    throw "The backend did not become ready. Review the backend terminal."
+if (-not $backendReady) {
+    throw "The backend did not become ready. Review the backend terminal (process $($backendProcess.Id))."
+}
+if (-not $frontendReady) {
+    throw "The dashboard did not start on port 5173. Review the frontend terminal (process $($frontendProcess.Id))."
 }
 
 Start-Process "http://127.0.0.1:5173"
 Write-Host "Aegis is ready at http://127.0.0.1:5173" -ForegroundColor Green
-
