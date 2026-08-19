@@ -15,16 +15,16 @@ Only genuine Windows PE files are supported. Changing a filename extension does 
 
 ## Understand results
 
-- **Benign:** score is below the suspicious threshold. This is not proof that the file is safe.
-- **Suspicious:** score reached the suspicious threshold but not the malicious threshold. Review evidence.
-- **Malicious:** score reached the malicious threshold. Treat the file as a high-priority triage event.
+- **Benign:** neither the model nor an authoritative YARA rule produced stronger evidence. This is not proof that the file is safe.
+- **Suspicious:** the model threshold or an explicit suspicious YARA rule requires review.
+- **Malicious:** the model crossed its malicious threshold or a reviewed YARA rule supplied an explicit malicious verdict.
 - **Failed:** the model or an analysis dependency was unavailable. The reason appears on the detail page.
 
-Configured thresholds are visible on **Settings**. The score is a model probability, not a severity percentage.
+Configured thresholds and YARA availability are visible on **Settings**. The score is the XGBoost malicious probability, not the combined verdict or proof of safety.
 
 ## View an analysis
 
-Open a result after upload or choose one in **Analysis history**. The detail view shows hash, source, endpoint metadata, PE headers, section entropy, imports, classification, model version, and any cache relationship.
+Open a result after upload or choose one in **Analysis history**. The detail view shows hash, source, endpoint metadata, PE headers, section entropy, imports, XGBoost probability, YARA evidence, combined classification, pipeline version, and any cache relationship. A YARA non-match is not a safe-file guarantee.
 
 ## AI report and PDF
 
@@ -39,7 +39,7 @@ Open **Wazuh detections** to see authenticated endpoint submissions. Filter by e
 - **Unsupported file type:** the content is not a parseable PE.
 - **File exceeds limit:** the server rejected the stream before analysis.
 - **Model setup required / unverified LIEF:** an administrator must complete the exact model setup.
+- **YARA unavailable:** install backend requirements and confirm the configured rules directory compiles; the model result remains visible as partial evidence.
 - **AI analysis unavailable:** Ollama is offline or returned invalid structured data; classification remains usable.
 - **PDF unavailable:** use the on-screen structured report and contact the administrator.
 - **Wazuh authentication failed:** the endpoint API key does not match the server setting.
-

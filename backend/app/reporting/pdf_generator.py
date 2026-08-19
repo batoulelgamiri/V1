@@ -75,7 +75,7 @@ def generate_pdf(analysis: Analysis, report: StructuredReport, output_path: Path
         ["Analyzed", (analysis.created_at or datetime.now(timezone.utc)).isoformat()],
         ["Source", analysis.source],
         ["Classification", analysis.classification.upper()],
-        ["Detection score", f"{(analysis.score or 0) * 100:.2f}%"],
+        ["XGBoost malicious probability", f"{(analysis.score or 0) * 100:.2f}%"],
         ["Model", f"{analysis.model_name} / {analysis.model_version}"],
     ]
     table = Table([[paragraph(k, "SmallMuted"), paragraph(v)] for k, v in metadata], colWidths=[38 * mm, 130 * mm])

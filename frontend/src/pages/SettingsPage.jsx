@@ -1,4 +1,4 @@
-import { Bot, Database, FileArchive, Gauge, KeyRound, SlidersHorizontal } from 'lucide-react'
+import { Bot, Database, FileArchive, Gauge, KeyRound, ScanSearch, SlidersHorizontal } from 'lucide-react'
 import { PageHeader } from '../components/ui/PageHeader'
 import { ErrorState, LoadingState } from '../components/ui/States'
 import { StatusBadge } from '../components/ui/StatusBadge'
@@ -20,6 +20,7 @@ export function SettingsPage() {
         <SettingCard icon={Gauge} label="Suspicious threshold" value={`${(data.thresholds.suspicious * 100).toFixed(0)}%`} description="Scores at or above this level are suspicious unless they cross the malicious threshold." />
         <SettingCard icon={SlidersHorizontal} label="Malicious threshold" value={`${(data.thresholds.malicious * 100).toFixed(0)}%`} description="Scores at or above this level receive a malicious verdict." />
         <SettingCard icon={Database} label="Detection model" value={data.model_name} description="The verified model artifact and EMBER v2 feature contract are checked before inference." />
+        <SettingCard icon={ScanSearch} label="YARA rules" value={<StatusBadge value={data.yara_available ? 'completed' : 'failed'} />} description={`${data.yara_enabled ? 'Enabled' : 'Disabled'} · ${data.yara_ruleset_version}. Rules supply explicit signature evidence alongside XGBoost.`} />
         <SettingCard icon={Bot} label="Report model" value={data.ollama_model} description="Used locally for suspicious and malicious report enrichment only." />
         <SettingCard icon={KeyRound} label="Wazuh authentication" value={<StatusBadge value="completed" />} description="Ingest uses a server-side API key. The key value is intentionally hidden." />
       </section>
@@ -27,4 +28,3 @@ export function SettingsPage() {
     </>
   )
 }
-

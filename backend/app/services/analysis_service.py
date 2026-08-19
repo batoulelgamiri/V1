@@ -10,12 +10,19 @@ from app.analyzers.pe_parser import parse_pe, validate_pe
 from app.core.config import Settings
 from app.database.models import Analysis
 from app.engines.xgboost_engine import MODEL_NAME, ModelUnavailableError, XGBoostDetectionEngine
+from app.engines.yara_engine import (
+    YaraDetectionEngine,
+    YaraScanError,
+    YaraScanResult,
+    YaraUnavailableError,
+)
 from app.integrations.ollama_client import OllamaClient
 from app.repositories.analysis_repository import AnalysisRepository
 from app.repositories.endpoint_repository import EndpointRepository
 from app.repositories.report_repository import ReportRepository
 from app.services.hash_service import sha256_file
 from app.services.report_service import ReportService
+from app.services.verdict_service import combine_verdict
 
 
 logger = logging.getLogger(__name__)
@@ -27,6 +34,7 @@ class AnalysisService:
         db: Session,
         settings: Settings,
         engine: XGBoostDetectionEngine | None = None,
+        yara_engine: YaraDetectionEngine | None = None,
     ) -> None:
         self.db = db
         self.settings = settings
@@ -38,6 +46,12 @@ class AnalysisService:
             suspicious_threshold=settings.suspicious_threshold,
             malicious_threshold=settings.malicious_threshold,
         )
+        self.yara_engine = yara_engine or YaraDetectionEngine(
+            rules_dir=settings.resolved_yara_rules_dir,
+            timeout_seconds=settings.yara_timeout_seconds,
+            enabled=settings.yara_enabled,
+        )
+        self.pipeline_version = f"{self.engine.model_version}+{self.yara_engine.cache_version}"
 
     def analyze_file(
         self,
@@ -55,7 +69,7 @@ class AnalysisService:
         if source == "wazuh" and endpoint_id and endpoint_name:
             EndpointRepository(self.db).upsert(endpoint_id, endpoint_name)
 
-        cached = self.repository.find_cached(digest, self.engine.model_version)
+        cached = self.repository.find_cached(digest, self.pipeline_version)
         if cached:
             return self._record_cache_hit(
                 cached,
@@ -78,7 +92,7 @@ class AnalysisService:
             file_path=file_path,
             status="processing",
             model_name=MODEL_NAME,
-            model_version=self.engine.model_version,
+            model_version=self.pipeline_version,
         )
         logger.info(
             "analysis started",
@@ -86,12 +100,24 @@ class AnalysisService:
         )
         try:
             technical = parse_pe(path)
+            model_result = self.engine.analyze(path)
+            yara_result = self._scan_yara(path)
+            verdict = combine_verdict(model_result, yara_result)
+            technical["detection"] = {
+                "final_verdict": verdict.as_dict(),
+                "xgboost": {
+                    "classification": model_result.classification,
+                    "malicious_probability": model_result.score,
+                    "model": model_result.model_name,
+                    "model_version": model_result.model_version,
+                },
+                "yara": yara_result.as_dict(),
+            }
             analysis.technical_data = json.dumps(technical, ensure_ascii=False)
-            result = self.engine.analyze(path)
-            analysis.classification = result.classification
-            analysis.score = result.score
-            analysis.model_name = result.model_name
-            analysis.model_version = result.model_version
+            analysis.classification = verdict.classification
+            analysis.score = model_result.score
+            analysis.model_name = model_result.model_name
+            analysis.model_version = self.pipeline_version
             analysis.status = "completed"
             self.repository.save(analysis)
             logger.info(
@@ -100,11 +126,11 @@ class AnalysisService:
                     "event": "analysis_completed",
                     "analysis_id": analysis.id,
                     "source": source,
-                    "classification": result.classification,
+                    "classification": verdict.classification,
                     "status": "completed",
                 },
             )
-            if result.classification in {"suspicious", "malicious"}:
+            if verdict.classification in {"suspicious", "malicious"}:
                 ollama = OllamaClient(
                     self.settings.ollama_base_url,
                     self.settings.ollama_model,
@@ -132,6 +158,22 @@ class AnalysisService:
                 extra={"event": "analysis_failed", "analysis_id": analysis.id, "status": "failed"},
             )
             return self.repository.save(analysis)
+
+    def _scan_yara(self, path: Path) -> YaraScanResult:
+        try:
+            return self.yara_engine.scan(path)
+        except YaraUnavailableError as exc:
+            logger.warning(
+                "YARA unavailable",
+                extra={"event": "yara_unavailable", "status": "unavailable"},
+            )
+            return YaraScanResult.unavailable(self.yara_engine.ruleset_version, str(exc))
+        except YaraScanError as exc:
+            logger.warning(
+                "YARA scan failed",
+                extra={"event": "yara_failed", "status": "failed"},
+            )
+            return YaraScanResult.failed(self.yara_engine.ruleset_version, str(exc))
 
     def _record_cache_hit(self, cached: Analysis, **metadata) -> Analysis:
         duplicate = self.repository.create(
@@ -164,4 +206,3 @@ class AnalysisService:
             extra={"event": "analysis_cache_hit", "analysis_id": duplicate.id, "source": duplicate.source},
         )
         return self.repository.get(duplicate.id) or duplicate
-

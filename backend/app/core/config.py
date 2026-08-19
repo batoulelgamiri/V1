@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     suspicious_threshold: float = Field(default=0.50, ge=0.0, le=1.0)
     malicious_threshold: float = Field(default=0.80, ge=0.0, le=1.0)
 
+    yara_enabled: bool = True
+    yara_rules_dir: Path = Path("./rules")
+    yara_timeout_seconds: int = Field(default=10, ge=1, le=120)
+
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
     ollama_timeout_seconds: float = Field(default=120, gt=0)
@@ -71,6 +75,10 @@ class Settings(BaseSettings):
     @property
     def resolved_storage_dir(self) -> Path:
         return self.resolve_path(self.storage_dir)
+
+    @property
+    def resolved_yara_rules_dir(self) -> Path:
+        return self.resolve_path(self.yara_rules_dir)
 
     @property
     def cors_origin_list(self) -> list[str]:

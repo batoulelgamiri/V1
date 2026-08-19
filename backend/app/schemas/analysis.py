@@ -65,9 +65,11 @@ class PublicSettings(BaseModel):
     model_name: str
     model_path_configured: bool
     ollama_model: str
+    yara_enabled: bool
+    yara_available: bool
+    yara_ruleset_version: str
 
 
 class ErrorResponse(BaseModel):
     detail: str
     code: str | None = None
-

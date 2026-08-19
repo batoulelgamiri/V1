@@ -68,11 +68,12 @@ class ReportService:
                 "source": analysis.source,
             },
             "model_result": {
-                "classification": analysis.classification,
+                "final_classification": analysis.classification,
                 "score": analysis.score,
                 "model": analysis.model_name,
                 "model_version": analysis.model_version,
             },
+            "detection_layers": technical.get("detection", {}),
             "pe_metadata": {
                 key: technical.get(key)
                 for key in (
@@ -94,4 +95,3 @@ class ReportService:
                 "not confirmed runtime behavior."
             ),
         }
-

@@ -84,6 +84,13 @@ export function AppLayout() {
     localStorage.setItem('aegis-theme', theme)
   }, [theme])
 
+  const detectionReady = health?.model_available && health?.yara_available
+  const detectionStatus = !health?.model_available
+    ? 'Model setup required'
+    : health?.yara_available
+      ? 'Detection layers ready'
+      : 'YARA layer unavailable'
+
   return (
     <div className="min-h-screen text-ink">
       <AmbientBackground />
@@ -92,8 +99,8 @@ export function AppLayout() {
         <header className="sticky top-0 z-20 flex h-16 items-center border-b border-line/60 bg-canvas/75 px-4 backdrop-blur-xl sm:px-6 lg:px-10">
           <button className="icon-button mr-3 lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open navigation"><Menu className="h-5 w-5" /></button>
           <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-            <span className={`h-2 w-2 rounded-full ${health?.model_available ? 'bg-success' : 'bg-warning'}`} />
-            {health?.model_available ? 'Detection engine ready' : 'Model setup required'}
+            <span className={`h-2 w-2 rounded-full ${detectionReady ? 'bg-success' : 'bg-warning'}`} />
+            {detectionStatus}
           </div>
           <button
             className="icon-button ml-auto"
@@ -108,4 +115,3 @@ export function AppLayout() {
     </div>
   )
 }
-

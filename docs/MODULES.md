@@ -32,11 +32,26 @@
 - **Failure:** returns a model-unavailable condition to the orchestration service.
 - **Extend:** implement another small adapter returning the same result shape.
 
+## YARA engine — `engines/yara_engine.py`, `rules/`
+
+- **Purpose:** fingerprint and compile the curated ruleset once, scan bounded PE uploads with a timeout, and normalize matches into JSON-safe evidence.
+- **Input/output:** PE path → `YaraScanResult` containing status, ruleset version, match metadata, and explicit rule verdicts.
+- **Dependencies:** pinned `yara-python`; only `aegis_verdict=suspicious|malicious` metadata may influence the combined verdict.
+- **Failure:** unavailable or timed-out scans are recorded as partial evidence and never become a benign signal.
+- **Extend:** add reviewed `.yar` files with author, description, family, severity, confidence, reference, and `aegis_verdict` metadata.
+
+## Verdict service — `services/verdict_service.py`
+
+- **Purpose:** combine independent engine outputs through a deterministic, testable policy.
+- **Input/output:** XGBoost result plus YARA result → final classification, contributing sources, and reason.
+- **Failure:** non-authoritative YARA matches remain evidence but cannot override the model.
+- **Extend:** add hash reputation or another engine without embedding fusion policy in API routes.
+
 ## Analysis service — `services/analysis_service.py`
 
 - **Purpose:** coordinate validation, hashing, cache, metadata, inference, persistence, and optional reporting.
 - **Input/output:** intake file plus trusted source fields → stored `Analysis`.
-- **Dependencies:** repositories, analyzers, engine, report service.
+- **Dependencies:** repositories, analyzers, XGBoost/YARA engines, verdict service, report service.
 - **Failure:** stores expected inference failures and logs unexpected failures.
 - **Extend:** call additional engines after PE parsing and store a versioned unified result.
 
@@ -79,4 +94,3 @@
 - **Dependencies:** SQLAlchemy session.
 - **Failure:** bubbles database errors to central logging/error handling.
 - **Extend:** preserve repository method contracts when moving to PostgreSQL.
-

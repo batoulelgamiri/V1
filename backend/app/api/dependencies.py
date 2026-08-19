@@ -4,6 +4,7 @@ from functools import lru_cache
 
 from app.core.config import get_settings
 from app.engines.xgboost_engine import XGBoostDetectionEngine
+from app.engines.yara_engine import YaraDetectionEngine
 
 
 @lru_cache
@@ -16,3 +17,12 @@ def get_detection_engine() -> XGBoostDetectionEngine:
         malicious_threshold=settings.malicious_threshold,
     )
 
+
+@lru_cache
+def get_yara_engine() -> YaraDetectionEngine:
+    settings = get_settings()
+    return YaraDetectionEngine(
+        rules_dir=settings.resolved_yara_rules_dir,
+        timeout_seconds=settings.yara_timeout_seconds,
+        enabled=settings.yara_enabled,
+    )

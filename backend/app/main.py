@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.analyzers.pe_parser import UnsupportedFileError
-from app.api.dependencies import get_detection_engine
+from app.api.dependencies import get_detection_engine, get_yara_engine
 from app.api.routes import analyses, dashboard, endpoints, settings as settings_route
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -26,8 +26,13 @@ async def lifespan(_app: FastAPI):
     settings.model_path.parent.mkdir(parents=True, exist_ok=True)
     init_db()
     engine = get_detection_engine()
+    yara_engine = get_yara_engine()
     model_status = "available" if engine.available else "unavailable"
-    logger.info("application started", extra={"event": "startup", "status": model_status})
+    yara_status = "available" if yara_engine.available else "unavailable"
+    logger.info(
+        "application started",
+        extra={"event": "startup", "status": model_status, "yara_status": yara_status},
+    )
     yield
     logger.info("application stopped", extra={"event": "shutdown"})
 
@@ -64,10 +69,13 @@ async def unexpected_error_handler(_request: Request, exc: Exception) -> JSONRes
 @app.get("/api/health", tags=["system"])
 def health() -> dict[str, object]:
     engine = get_detection_engine()
+    yara_engine = get_yara_engine()
     return {
         "status": "ok",
         "model_available": engine.available,
         "model_version": engine.model_version,
+        "yara_available": yara_engine.available,
+        "yara_ruleset_version": yara_engine.ruleset_version,
     }
 
 
@@ -75,4 +83,3 @@ app.include_router(analyses.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(endpoints.router, prefix="/api")
 app.include_router(settings_route.router, prefix="/api")
-

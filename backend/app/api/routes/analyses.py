@@ -7,12 +7,13 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_detection_engine
+from app.api.dependencies import get_detection_engine, get_yara_engine
 from app.core.config import Settings, get_settings
 from app.core.security import api_keys_match
 from app.database.models import Analysis
 from app.database.session import get_db
 from app.engines.xgboost_engine import XGBoostDetectionEngine
+from app.engines.yara_engine import YaraDetectionEngine
 from app.repositories.analysis_repository import AnalysisRepository
 from app.repositories.report_repository import ReportRepository
 from app.schemas.analysis import AnalysisDetail, AnalysisListItem, AnalysisPage
@@ -70,6 +71,7 @@ async def _analyze_upload(
     db: Session,
     settings: Settings,
     engine: XGBoostDetectionEngine,
+    yara_engine: YaraDetectionEngine,
     endpoint_id: str | None = None,
     endpoint_name: str | None = None,
     file_path: str | None = None,
@@ -82,7 +84,7 @@ async def _analyze_upload(
     except UploadValidationError as exc:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc)) from exc
     try:
-        analysis = AnalysisService(db, settings, engine).analyze_file(
+        analysis = AnalysisService(db, settings, engine, yara_engine).analyze_file(
             path,
             original_filename=filename,
             file_size=file_size,
@@ -102,9 +104,15 @@ async def upload_analysis(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     engine: XGBoostDetectionEngine = Depends(get_detection_engine),
+    yara_engine: YaraDetectionEngine = Depends(get_yara_engine),
 ) -> AnalysisDetail:
     return await _analyze_upload(
-        upload=file, source="manual", db=db, settings=settings, engine=engine
+        upload=file,
+        source="manual",
+        db=db,
+        settings=settings,
+        engine=engine,
+        yara_engine=yara_engine,
     )
 
 
@@ -118,6 +126,7 @@ async def wazuh_analysis(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     engine: XGBoostDetectionEngine = Depends(get_detection_engine),
+    yara_engine: YaraDetectionEngine = Depends(get_yara_engine),
 ) -> AnalysisDetail:
     if not api_keys_match(x_api_key, settings.wazuh_ingest_api_key):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Wazuh ingest API key.")
@@ -127,6 +136,7 @@ async def wazuh_analysis(
         db=db,
         settings=settings,
         engine=engine,
+        yara_engine=yara_engine,
         endpoint_id=endpoint_id,
         endpoint_name=endpoint_name,
         file_path=file_path,
@@ -196,4 +206,3 @@ def download_report_pdf(analysis_id: int, db: Session = Depends(get_db)) -> File
         media_type="application/pdf",
         filename=f"aegis-analysis-{analysis_id}.pdf",
     )
-

@@ -6,6 +6,7 @@ SQLAlchemy==2.0.40
 python-multipart==0.0.20
 httpx==0.28.1
 pefile==2024.8.26
+yara-python==4.5.4
 xgboost==1.7.6
 numpy>=1.23.5,<2.0
 reportlab==4.4.0
